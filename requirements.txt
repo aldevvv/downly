@@ -1,0 +1,5 @@
+Flask>=2.2.0
+yt-dlp>=2025.2.0
+instaloader>=4.10
+ffmpeg
+requests
