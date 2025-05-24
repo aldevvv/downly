@@ -2,7 +2,6 @@ from flask import Flask, request, send_file, abort, send_from_directory, after_t
 import os
 import tempfile
 from yt_dlp import YoutubeDL
-from urllib.parse import urlparse
 import shutil
 
 app = Flask(__name__, static_folder=None, template_folder=None)
@@ -16,10 +15,11 @@ def custom_static(filename):
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/platform/<page>.html')
-def platform_page(page):
-    if page in ['youtube', 'tiktok', 'instagram']:
-        return send_from_directory('Platform', f"{page}.html")
+@app.route('/<platform>/')
+@app.route('/<platform>/index.html')
+def platform_page(platform):
+    if platform in ['youtube', 'tiktok', 'instagram']:
+        return send_from_directory(platform, 'index.html')
     abort(404)
 
 @app.route('/download/<platform>', methods=['POST'])
@@ -33,13 +33,16 @@ def download(platform):
 def process_download(url, dtype):
     tmp_dir = tempfile.mkdtemp()
     output_path = os.path.join(tmp_dir, '%(id)s.%(ext)s')
+    ffmpeg_path = "C:/ffmpeg/bin"
     opts = {
         'outtmpl': output_path,
         'merge_output_format': 'mp4',
         'quiet': True,
         'noplaylist': True,
-        'ignoreerrors': False
+        'ignoreerrors': False,
+        'ffmpeg_location': ffmpeg_path
     }
+
     if dtype == 'mp3':
         opts['format'] = 'bestaudio/best'
         opts['postprocessors'] = [{
@@ -48,8 +51,7 @@ def process_download(url, dtype):
             'preferredquality': '192',
         }]
     else:
-        opts['format'] = 'bv[ext=mp4][vcodec*=avc1]+ba[ext=m4a]/b[ext=mp4][vcodec*=avc1]/b'
-    
+        opts['format'] = 'bv[ext=mp4][vcodec*=avc1]+ba/b[ext=mp4][vcodec*=avc1]/b'
 
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -59,6 +61,7 @@ def process_download(url, dtype):
         if not os.path.exists(filepath):
             shutil.rmtree(tmp_dir)
             abort(404, description="File not found after download")
+
     return serve_file(filepath, tmp_dir)
 
 def serve_file(path, tmp_dir):
